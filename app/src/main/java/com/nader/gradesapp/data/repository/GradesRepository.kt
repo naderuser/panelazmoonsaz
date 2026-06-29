@@ -8,14 +8,12 @@ import retrofit2.Retrofit
 import retrofit2.converter.gson.GsonConverterFactory
 
 class GradesRepository(baseUrl: String) {
-
     companion object {
-        const val TEACHER_PASSWORD = "admin1234"
+        const val TEACHER_PASSWORD = "nader0933"
     }
 
     private val api: ApiService by lazy {
-        val logger = HttpLoggingInterceptor().apply { level = HttpLoggingInterceptor.Level.BODY }
-        val client = OkHttpClient.Builder().addInterceptor(logger).build()
+        val client = OkHttpClient.Builder().build()
         Retrofit.Builder()
             .baseUrl(baseUrl.trimEnd('/') + "/")
             .client(client)
@@ -26,19 +24,18 @@ class GradesRepository(baseUrl: String) {
 
     suspend fun loadByUUID(uuid: String): Result<Map<String, List<GradeItem>>> {
         return try {
-            val response = api.loadGrades(uuid)
-            if (response.isSuccessful && response.body()?.success == true)
-                Result.success(response.body()!!.data ?: emptyMap())
-            else Result.failure(Exception(response.body()?.error ?: "خطا در بارگذاری"))
+            val r = api.loadGrades(uuid)
+            if (r.isSuccessful && r.body()?.success == true)
+                Result.success(r.body()!!.data ?: emptyMap())
+            else Result.failure(Exception(r.body()?.error ?: "خطا"))
         } catch (e: Exception) { Result.failure(e) }
     }
 
     suspend fun saveGrades(uuid: String, grades: Map<String, List<GradeItem>>): Result<Boolean> {
         return try {
-            val response = api.saveGrades(SaveRequest(uuid, grades))
-            if (response.isSuccessful && response.body()?.success == true)
-                Result.success(true)
-            else Result.failure(Exception(response.body()?.error ?: "خطا در ذخیره"))
+            val r = api.saveGrades(SaveRequest(uuid, grades))
+            if (r.isSuccessful && r.body()?.success == true) Result.success(true)
+            else Result.failure(Exception(r.body()?.error ?: "خطا"))
         } catch (e: Exception) { Result.failure(e) }
     }
 }

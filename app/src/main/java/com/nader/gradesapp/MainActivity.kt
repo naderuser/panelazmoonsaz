@@ -16,11 +16,7 @@ class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
-        setContent {
-            GradesAppTheme {
-                GradesApp()
-            }
-        }
+        setContent { GradesAppTheme { GradesApp() } }
     }
 }
 
@@ -31,28 +27,11 @@ fun GradesApp() {
     var showLogin by remember { mutableStateOf(false) }
 
     when {
-        // ── اگه آدرس ورکر تنظیم نشده → صفحه Setup ──────────────────────
-        workerUrl == null -> {
-            SetupScreen(onSave = { url -> vm.saveWorkerUrl(url) })
-        }
-
-        // ── اگه باید لاگین نشون بده ──────────────────────────────────────
-        showLogin -> {
-            LoginScreen(
-                onLogin = { password ->
-                    if (vm.login(password)) { showLogin = false; true }
-                    else false
-                },
-                onSkip = { showLogin = false }
-            )
-        }
-
-        // ── صفحه اصلی ────────────────────────────────────────────────────
-        else -> {
-            MainScreen(
-                vm = vm,
-                onLoginRequest = { showLogin = true }
-            )
-        }
+        workerUrl == null -> SetupScreen(onSave = { vm.saveWorkerUrl(it) })
+        showLogin -> LoginScreen(
+            onLogin = { if (vm.login(it)) { showLogin = false; true } else false },
+            onSkip = { showLogin = false }
+        )
+        else -> MainScreen(vm = vm, onLoginRequest = { showLogin = true })
     }
 }

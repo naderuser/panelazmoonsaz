@@ -27,12 +27,23 @@ android {
     }
 
     signingConfigs {
-        create("release") {
-            // For local development - replace with your actual keystore
-            storeFile = file("tosifa.jks")
-            storePassword = "tosifa123"
-            keyAlias = "tosifa"
-            keyPassword = "tosifa123"
+        getByName("release") {
+            // CI/CD will override these with signing.properties
+            val signingPropertiesFile = rootProject.file("signing.properties")
+            if (signingPropertiesFile.exists()) {
+                val props = java.util.Properties()
+                signingPropertiesFile.inputStream().use { props.load(it) }
+                storeFile = file(props["storeFile"] as String)
+                storePassword = props["storePassword"] as String
+                keyAlias = props["keyAlias"] as String
+                keyPassword = props["keyPassword"] as String
+            } else {
+                // Local development fallback
+                storeFile = file("tosifa.jks")
+                storePassword = "tosifa123"
+                keyAlias = "tosifa"
+                keyPassword = "tosifa123"
+            }
         }
     }
 

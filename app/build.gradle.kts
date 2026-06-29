@@ -25,6 +25,31 @@ android {
     packaging {
         resources { excludes += "/META-INF/{AL2.0,LGPL2.1}" }
     }
+
+    signingConfigs {
+        create("release") {
+            // For local development - replace with your actual keystore
+            storeFile = file("tosifa.jks")
+            storePassword = "tosifa123"
+            keyAlias = "tosifa"
+            keyPassword = "tosifa123"
+        }
+    }
+
+    buildTypes {
+        debug {
+            isMinifyEnabled = false
+        }
+        release {
+            isMinifyEnabled = true
+            isShrinkResources = true
+            proguardFiles(
+                getDefaultProguardFile("proguard-android-optimize.txt"),
+                "proguard-rules.pro"
+            )
+            signingConfig = signingConfigs.getByName("release")
+        }
+    }
 }
 
 dependencies {

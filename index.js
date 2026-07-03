@@ -1,12 +1,23 @@
 // ============================================
 // Cloudflare Worker - پنل ساخت آزمون معلم
-// نسخه نهایی با تاریخ شمسی 1405
+// با KV Storage و نام طراح
 // ============================================
 
 export default {
   async fetch(request, env, ctx) {
     const url = new URL(request.url);
     const path = url.pathname;
+
+    // مسیرهای API برای KV
+    if (path === '/api/save' && request.method === 'POST') {
+      return await saveToKV(request, env);
+    }
+    if (path === '/api/load' && request.method === 'GET') {
+      return await loadFromKV(request, env);
+    }
+    if (path === '/api/delete' && request.method === 'DELETE') {
+      return await deleteFromKV(request, env);
+    }
 
     if (path === '/' || path === '') {
       return new Response(getHTML(), {
@@ -34,6 +45,74 @@ export default {
 };
 
 // ============================================
+// توابع KV Storage
+// ============================================
+async function saveToKV(request, env) {
+  try {
+    const data = await request.json();
+    const key = data.key || 'exam_data';
+    const value = JSON.stringify(data.value);
+    
+    await env.EXAM_KV.put(key, value);
+    return Response.json({ 
+      success: true, 
+      message: 'اطلاعات با موفقیت ذخیره شد',
+      key: key
+    });
+  } catch (error) {
+    return Response.json({ 
+      success: false, 
+      message: 'خطا در ذخیره‌سازی: ' + error.message 
+    }, { status: 500 });
+  }
+}
+
+async function loadFromKV(request, env) {
+  try {
+    const url = new URL(request.url);
+    const key = url.searchParams.get('key') || 'exam_data';
+    
+    const value = await env.EXAM_KV.get(key);
+    if (value === null) {
+      return Response.json({ 
+        success: false, 
+        message: 'اطلاعاتی یافت نشد' 
+      });
+    }
+    
+    return Response.json({ 
+      success: true, 
+      data: JSON.parse(value),
+      key: key
+    });
+  } catch (error) {
+    return Response.json({ 
+      success: false, 
+      message: 'خطا در بارگذاری: ' + error.message 
+    }, { status: 500 });
+  }
+}
+
+async function deleteFromKV(request, env) {
+  try {
+    const url = new URL(request.url);
+    const key = url.searchParams.get('key') || 'exam_data';
+    
+    await env.EXAM_KV.delete(key);
+    return Response.json({ 
+      success: true, 
+      message: 'اطلاعات با موفقیت حذف شد',
+      key: key
+    });
+  } catch (error) {
+    return Response.json({ 
+      success: false, 
+      message: 'خطا در حذف: ' + error.message 
+    }, { status: 500 });
+  }
+}
+
+// ============================================
 // HTML
 // ============================================
 function getHTML() {
@@ -50,10 +129,15 @@ function getHTML() {
     <div id="app">
         <!-- Header -->
         <header class="header">
-            <h1>📝 پنل ساخت آزمون معلم</h1>
+            <div class="header-main">
+                <h1>📝 پنل ساخت آزمون معلم</h1>
+                <div class="designer-name">طراح: نادر اکشیک</div>
+            </div>
             <div class="header-actions">
+                <button onclick="saveToKV()" class="btn btn-success">💾 ذخیره</button>
+                <button onclick="loadFromKV()" class="btn btn-warning">📂 بازیابی</button>
                 <button onclick="exportPDF()" class="btn btn-primary">📄 PDF</button>
-                <button onclick="exportWord()" class="btn btn-success">📤 Word</button>
+                <button onclick="exportWord()" class="btn btn-primary">📤 Word</button>
                 <button onclick="resetAll()" class="btn btn-danger">🔄 جدید</button>
             </div>
         </header>
@@ -215,29 +299,48 @@ body {
 .header {
     background: #1e3a5f;
     color: white;
-    padding: 1rem 2rem;
+    padding: 0.75rem 2rem;
     display: flex;
     justify-content: space-between;
     align-items: center;
     position: sticky;
     top: 0;
     z-index: 100;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+}
+
+.header-main {
+    display: flex;
+    align-items: center;
+    gap: 1.5rem;
 }
 
 .header h1 {
-    font-size: 1.3rem;
+    font-size: 1.2rem;
+}
+
+.designer-name {
+    font-size: 0.8rem;
+    color: #93c5fd;
+    background: rgba(255,255,255,0.1);
+    padding: 0.2rem 0.8rem;
+    border-radius: 1rem;
+    font-weight: normal;
+    border: 1px solid rgba(255,255,255,0.2);
 }
 
 .header-actions {
     display: flex;
-    gap: 0.5rem;
+    gap: 0.4rem;
+    flex-wrap: wrap;
 }
 
 .btn {
-    padding: 0.4rem 1rem;
+    padding: 0.35rem 0.8rem;
     border: none;
     border-radius: 0.4rem;
-    font-size: 0.85rem;
+    font-size: 0.8rem;
     cursor: pointer;
     transition: all 0.3s;
     font-family: inherit;
@@ -277,7 +380,7 @@ body {
     grid-template-columns: 300px 1fr 400px;
     gap: 1rem;
     padding: 1rem;
-    height: calc(100vh - 70px);
+    height: calc(100vh - 75px);
     overflow: hidden;
 }
 
@@ -489,11 +592,17 @@ hr {
 @media (max-width: 768px) {
     .header {
         flex-direction: column;
-        gap: 0.5rem;
-        padding: 0.75rem;
+        padding: 0.5rem 1rem;
+    }
+    .header-main {
+        flex-direction: column;
+        gap: 0.3rem;
+        text-align: center;
+    }
+    .header h1 {
+        font-size: 1rem;
     }
     .header-actions {
-        flex-wrap: wrap;
         justify-content: center;
     }
     .form-row {
@@ -530,7 +639,7 @@ hr {
 }
 
 // ============================================
-// JAVASCRIPT - با تاریخ شمسی 1405
+// JAVASCRIPT - با KV Storage
 // ============================================
 function getJS() {
   return `// ===== STATE =====
@@ -549,7 +658,6 @@ function toPersianDate(date) {
     const month = d.getMonth() + 1;
     const day = d.getDate();
     
-    // تبدیل تقریبی میلادی به شمسی
     const gregorianToJalali = (gy, gm, gd) => {
         const g_d_m = [0, 31, 59, 90, 120, 151, 181, 212, 243, 273, 304, 334];
         let gy2 = (gm > 2) ? (gy + 1) : gy;
@@ -578,13 +686,110 @@ function getTodayPersian() {
 }
 
 function getDefaultPersianDate() {
-    // تاریخ پیش‌فرض: 1405/01/01
     return '1405/01/01';
 }
 
 function setTodayDate() {
     document.getElementById('examDate').value = getTodayPersian();
     renderPreview();
+}
+
+// ===== توابع KV Storage =====
+async function saveToKV() {
+    const data = getAllData();
+    try {
+        const response = await fetch('/api/save', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ key: 'exam_data', value: data })
+        });
+        const result = await response.json();
+        if (result.success) {
+            alert('✅ اطلاعات با موفقیت ذخیره شد!');
+        } else {
+            alert('❌ خطا: ' + result.message);
+        }
+    } catch (error) {
+        alert('❌ خطا در ارتباط با سرور');
+        console.error(error);
+    }
+}
+
+async function loadFromKV() {
+    try {
+        const response = await fetch('/api/load?key=exam_data');
+        const result = await response.json();
+        if (result.success && result.data) {
+            loadAllData(result.data);
+            alert('✅ اطلاعات با موفقیت بازیابی شد!');
+        } else {
+            alert('ℹ️ اطلاعاتی برای بازیابی وجود ندارد');
+        }
+    } catch (error) {
+        alert('❌ خطا در ارتباط با سرور');
+        console.error(error);
+    }
+}
+
+async function deleteFromKV() {
+    if (!confirm('آیا از حذف اطلاعات ذخیره شده مطمئن هستید؟')) return;
+    try {
+        const response = await fetch('/api/delete?key=exam_data', {
+            method: 'DELETE'
+        });
+        const result = await response.json();
+        if (result.success) {
+            alert('✅ اطلاعات با موفقیت حذف شد!');
+        } else {
+            alert('❌ خطا: ' + result.message);
+        }
+    } catch (error) {
+        alert('❌ خطا در ارتباط با سرور');
+        console.error(error);
+    }
+}
+
+// ===== توابع ذخیره و بازیابی داده =====
+function getAllData() {
+    return {
+        meta: {
+            educationLevel: document.getElementById('educationLevel').value,
+            eduOffice: document.getElementById('eduOffice').value,
+            grade: document.getElementById('grade').value,
+            subject: document.getElementById('subject').value,
+            studentName: document.getElementById('studentName').value,
+            fatherName: document.getElementById('fatherName').value,
+            schoolName: document.getElementById('schoolName').value,
+            teacherName: document.getElementById('teacherName').value,
+            examDate: document.getElementById('examDate').value,
+            duration: document.getElementById('duration').value,
+            generalFeedback: document.getElementById('generalFeedback').value
+        },
+        questions: questions,
+        nextId: nextId
+    };
+}
+
+function loadAllData(data) {
+    // بارگذاری متا
+    const meta = data.meta || {};
+    document.getElementById('educationLevel').value = meta.educationLevel || 'elementary';
+    document.getElementById('eduOffice').value = meta.eduOffice || '';
+    document.getElementById('grade').value = meta.grade || '';
+    document.getElementById('subject').value = meta.subject || '';
+    document.getElementById('studentName').value = meta.studentName || '';
+    document.getElementById('fatherName').value = meta.fatherName || '';
+    document.getElementById('schoolName').value = meta.schoolName || '';
+    document.getElementById('teacherName').value = meta.teacherName || '';
+    document.getElementById('examDate').value = meta.examDate || getDefaultPersianDate();
+    document.getElementById('duration').value = meta.duration || '60';
+    document.getElementById('generalFeedback').value = meta.generalFeedback || '';
+    
+    // بارگذاری سوالات
+    questions = data.questions || [];
+    nextId = data.nextId || questions.length + 1;
+    
+    renderAll();
 }
 
 // ===== FUNCTIONS =====
@@ -685,7 +890,6 @@ function renderPreview() {
     html += '<div class="bismillah">بسم الله الرحمن الرحيم</div>';
     
     if (level === 'elementary') {
-        // ابتدایی
         html += \`
             <table>
                 <tr>
@@ -738,7 +942,6 @@ function renderPreview() {
             </table>
         \`;
     } else {
-        // متوسطه
         html += \`
             <table>
                 <tr>
@@ -882,7 +1085,6 @@ function resetAll() {
 
 // ===== INIT =====
 document.addEventListener('DOMContentLoaded', function() {
-    // تنظیم تاریخ پیش‌فرض به 1405/01/01
     document.getElementById('examDate').value = getDefaultPersianDate();
     
     document.querySelectorAll('input, select, textarea').forEach(el => {
@@ -890,7 +1092,8 @@ document.addEventListener('DOMContentLoaded', function() {
         el.addEventListener('change', renderPreview);
     });
     
-    renderAll();
+    // بارگذاری خودکار اطلاعات ذخیره شده
+    loadFromKV();
 });
 
 // Global
@@ -902,5 +1105,8 @@ window.exportPDF = exportPDF;
 window.exportWord = exportWord;
 window.resetAll = resetAll;
 window.renderPreview = renderPreview;
-window.setTodayDate = setTodayDate;`;
+window.setTodayDate = setTodayDate;
+window.saveToKV = saveToKV;
+window.loadFromKV = loadFromKV;
+window.deleteFromKV = deleteFromKV;`;
 }

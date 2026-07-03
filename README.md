@@ -46,7 +46,18 @@ git clone https://github.com/naderuser/tosifapk.git
 cd tosifapk
 ```
 
-### 2. Deploy با Wrangler
+### 2. ساخت KV Namespace
+```bash
+wrangler kv:namespace create "EXAM_KV"
+```
+سپس `id` را در `wrangler.toml` قرار دهید:
+```toml
+[[kv_namespaces]]
+binding = "EXAM_KV"
+id = "YOUR_KV_ID_HERE"
+```
+
+### 3. Deploy با Wrangler
 ```bash
 npm install -g wrangler
 wrangler login
